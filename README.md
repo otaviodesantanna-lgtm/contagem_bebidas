@@ -1,1 +1,181 @@
-# contagem_bebidas
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Bebidas Pro</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #64748b;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --bg: #f8fafc;
+        }
+        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); margin: 0; padding: 15px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        
+        /* Tabs */
+        .tabs { display: flex; gap: 5px; margin-bottom: 20px; background: #eee; padding: 5px; border-radius: 10px; }
+        .tab-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: none; font-weight: 600; transition: 0.3s; }
+        .tab-btn.active { background: white; color: var(--primary); shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+        .section { display: none; }
+        .section.active { display: block; }
+
+        /* Itens */
+        .item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; }
+        .item-info { flex-grow: 1; }
+        .item-name { font-weight: 600; display: block; }
+        .item-unit { font-size: 12px; color: var(--secondary); }
+        
+        .controls { display: flex; align-items: center; gap: 8px; }
+        .btn { width: 32px; height: 32px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; font-size: 18px; }
+        .btn-minus { background: #fee2e2; color: var(--danger); }
+        .btn-plus { background: #dcfce7; color: var(--success); }
+        
+        /* Input de edição */
+        .count-input { width: 50px; text-align: center; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px; font-weight: bold; font-size: 16px; }
+
+        /* Gerenciamento */
+        .admin-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; padding: 15px; background: #f1f5f9; border-radius: 10px; }
+        input[type="text"] { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; }
+        .add-btn { background: var(--primary); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .delete-btn { color: var(--danger); background: none; border: none; cursor: pointer; font-size: 14px; text-decoration: underline; }
+
+        .footer-actions { margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="tabs">
+        <button class="tab-btn active" onclick="openTab('geladeira')">❄️ Geladeira</button>
+        <button class="tab-btn" onclick="openTab('estoque')">📦 Estoque</button>
+        <button class="tab-btn" onclick="openTab('admin')">⚙️ Ajustes</button>
+    </div>
+
+    <div id="geladeira" class="section active">
+        <div id="list-geladeira"></div>
+    </div>
+
+    <div id="estoque" class="section">
+        <div id="list-estoque"></div>
+    </div>
+
+    <div id="admin" class="section">
+        <h3>Adicionar Novo Item</h3>
+        <div class="admin-form">
+            <input type="text" id="newItemName" placeholder="Nome da bebida (ex: Coca 2L)">
+            <select id="targetCategory" style="padding: 10px; border-radius: 6px;">
+                <option value="geladeira">Adicionar na Geladeira</option>
+                <option value="estoque">Adicionar no Estoque</option>
+            </select>
+            <button class="add-btn" onclick="addItem()">Incluir Item</button>
+        </div>
+        <hr>
+        <h3>Remover Itens</h3>
+        <div id="admin-delete-list"></div>
+    </div>
+
+    <div class="footer-actions">
+        <button onclick="exportData()" style="width: 100%; padding: 8px; background: #eee; border: none; border-radius: 5px; cursor: pointer; margin-bottom: 10px;">Copiar Relatório para WhatsApp</button>
+    </div>
+</div>
+
+<script>
+    // Dados iniciais baseados no seu pedido
+    const defaultItems = [
+        "Guaraná antárctica 1,5L", "Sukita uva 2L", "Sukita laranja 2L", "Coca cola 2L", 
+        "Coca cola normal 1,5L", "Coca zero 1,5L", "Fanta uva lata", "Fanta laranja lata", 
+        "Sprite lata", "Guaraná lata", "Coca cola lata", "Coca cola zero lata", "Guaravita"
+    ];
+
+    let db = JSON.parse(localStorage.getItem('bebidas_db')) || {
+        geladeira: defaultItems.map(name => ({ name, count: 0 })),
+        estoque: defaultItems.map(name => ({ name, count: 0 }))
+    };
+
+    function save() {
+        localStorage.setItem('bebidas_db', JSON.stringify(db));
+        render();
+    }
+
+    function openTab(tabName) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabName).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+
+    function updateCount(cat, index, val) {
+        db[cat][index].count = Math.max(0, parseInt(val) || 0);
+        save();
+    }
+
+    function addItem() {
+        const name = document.getElementById('newItemName').value;
+        const cat = document.getElementById('targetCategory').value;
+        if(name) {
+            db[cat].push({ name: name, count: 0 });
+            document.getElementById('newItemName').value = '';
+            save();
+            alert("Item adicionado com sucesso!");
+        }
+    }
+
+    function removeItem(cat, index) {
+        if(confirm("Deseja remover este item definitivamente?")) {
+            db[cat].splice(index, 1);
+            save();
+        }
+    }
+
+    function render() {
+        const renderList = (cat, containerId, unit) => {
+            const container = document.getElementById(containerId);
+            container.innerHTML = db[cat].map((item, i) => `
+                <div class="item">
+                    <div class="item-info">
+                        <span class="item-name">${item.name}</span>
+                        <span class="item-unit">${unit}</span>
+                    </div>
+                    <div class="controls">
+                        <button class="btn btn-minus" onclick="updateCount('${cat}', ${i}, ${item.count - 1})">-</button>
+                        <input type="number" class="count-input" value="${item.count}" onchange="updateCount('${cat}', ${i}, this.value)">
+                        <button class="btn btn-plus" onclick="updateCount('${cat}', ${i}, ${item.count + 1})">+</button>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        renderList('geladeira', 'list-geladeira', 'Unidades');
+        renderList('estoque', 'list-estoque', 'Packs/Caixas');
+
+        // Render lista de deleção no admin
+        const adminList = document.getElementById('admin-delete-list');
+        let html = "<h4>Geladeira:</h4>";
+        db.geladeira.forEach((item, i) => {
+            html += `<div style="display:flex; justify-content:space-between; margin-bottom:5px;">${item.name} <button class="delete-btn" onclick="removeItem('geladeira', ${i})">Remover</button></div>`;
+        });
+        html += "<h4>Estoque:</h4>";
+        db.estoque.forEach((item, i) => {
+            html += `<div style="display:flex; justify-content:space-between; margin-bottom:5px;">${item.name} <button class="delete-btn" onclick="removeItem('estoque', ${i})">Remover</button></div>`;
+        });
+        adminList.innerHTML = html;
+    }
+
+    function exportData() {
+        let text = "*RELATÓRIO DE BEBIDAS*\n\n❄️ *GELADEIRA*\n";
+        db.geladeira.forEach(i => text += `- ${i.name}: ${i.count} un\n`);
+        text += "\n📦 *ESTOQUE*\n";
+        db.estoque.forEach(i => text += `- ${i.name}: ${i.count} packs\n`);
+        
+        navigator.clipboard.writeText(text).then(() => alert("Relatório copiado! Agora é só colar no WhatsApp."));
+    }
+
+    render();
+</script>
+
+</body>
+</html>
